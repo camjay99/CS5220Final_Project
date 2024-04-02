@@ -15,6 +15,18 @@ void calculate_direct_profile(double* direct_profile, int num_cohorts, double in
     }
 }
 
+// Uses radiation profiles to determines cohort level absorbed radiance. Absorbed radiance array should be of length num_cohorts.
+void calculate_absorbed_radiance(double* absorbed_radiance, double* direct_PAR_profile, double* direct_NIR_profile, double* direct_TIR_profile, int num_cohorts) {
+    for (int k = 0; k < num_cohorts; k++) {
+        absorbed_radiance[k] = direct_PAR_profile[k+1] - direct_PAR_profile[k] +
+                               direct_NIR_profile[k+1] - direct_NIR_profile[k] +
+                               direct_TIR_profile[k+1] - direct_TIR_profile[k];
+    }
+}
+
+// NOTE: CURRENTLY NOT PLANNING ON USING THE FOLLOWING FUNCTIONS AS DIFFUSE RADIATION CAN BE SIMPLY MODELLED AS INCREASED EXTINCTION COEFFICIENT.
+//       MAY DELETE THESE FUNCTION IN THE FUTURE.
+
 void calculate_black_body_profile(double* black_body_profile, double* temp_profile, int num_cohorts) {
     for (int k = 0; k < num_cohorts; k++) {
         black_body_profile[k] = stef_boltz_constant*pow(temp_profile[k], 4);
@@ -22,7 +34,6 @@ void calculate_black_body_profile(double* black_body_profile, double* temp_profi
     black_body_profile[num_cohorts + 1] = 0;
 }
 
-// IN THE FUTURE: Calculate diffuse vertical profile (requires sparse linear algebra)
 // A whole bunch of helper functions for setting up the diffuse vertical profile solver
 
 double D_plus(double scat, double backscat) {
@@ -136,25 +147,5 @@ void calculate_diffuse_profile(double* direct_profile, double* up_diffuse_profil
                                     x(2*k - 1)*D_plus_m_k*pos_mod +
                                     p_m*exp(-total_PAI/inv_op_depth_dir) + black_body_profile[k-1];
 
-    }
-}
-
-
-// Uses radiation profiles to determines cohort level absorbed radiance. Absorbed radiance array should be of length num_cohorts.
-void calculate_absorbed_radiance(double* absorbed_radiance, 
-                                 double* direct_PAR_profile, double* direct_NIR_profile, double* direct_TIR_profile, 
-                                 double* up_diffuse_PAR_profile, double* up_diffuse_NIR_profile, double* up_diffuse_TIR_profile,
-                                 double* down_diffuse_PAR_profile, double* down_diffuse_NIR_profile, double* down_diffuse_TIR_profile,
-                                 int num_cohorts) {
-    for (int k = 0; k < num_cohorts; k++) {
-        absorbed_radiance[k] = direct_PAR_profile[k+1] - direct_PAR_profile[k] +
-                               direct_NIR_profile[k+1] - direct_NIR_profile[k] +
-                               direct_TIR_profile[k+1] - direct_TIR_profile[k] +
-                               down_diffuse_PAR_profile[k+1] - down_diffuse_PAR_profile[k] + 
-                               down_diffuse_NIR_profile[k+1] - down_diffuse_NIR_profile[k] + 
-                               down_diffuse_TIR_profile[k+1] - down_diffuse_TIR_profile[k] +
-                               up_diffuse_PAR_profile[k] - up_diffuse_PAR_profile[k+1] + 
-                               up_diffuse_NIR_profile[k] - up_diffuse_NIR_profile[k+1] + 
-                               up_diffuse_TIR_profile[k] - up_diffuse_TIR_profile[k+1];
     }
 }

@@ -18,7 +18,5 @@ void calculate_diffuse_profile(double* direct_profile, double* up_diffuse_profil
 // Uses radiation profiles to determines cohort level absorbed radiance. Absorbed radiance array should be of length num_cohorts.
 void calculate_absorbed_radiance(double* absorbed_radiance, 
                                  double* direct_PAR_profile, double* direct_NIR_profile, double* direct_TIR_profile, 
-                                 double* up_diffuse_PAR_profile, double* up_diffuse_NIR_profile, double* up_diffuse_TIR_profile,
-                                 double* down_diffuse_PAR_profile, double* down_diffuse_NIR_profile, double* down_diffuse_TIR_profile,
                                  int num_cohorts);
 #endif

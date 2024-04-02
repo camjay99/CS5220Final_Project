@@ -35,4 +35,5 @@
 #define inv_op_depth_direct     10.0  // Inverse of the optical depth of direct radiation per unit of effective plant area index (measure of how far light travels through canopy)
 #define inv_op_depth_diffuse    10.0  // Inverse of the optical depth of diffuse radiation per unit of effective plant area index (measure of how far light travels through canopy)
 #define total_PAI               5.0   // Total plant area index for the entire layer.
+#define ein                     1
 #endif

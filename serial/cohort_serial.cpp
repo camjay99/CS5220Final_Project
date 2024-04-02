@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
 
     // Set temperature
     for (int k = 0; k <= num_cohorts; k++) {
-        temp_profile[k] = 298.15;
+        temp_profile[k] = 0;//298.15;
     }
 
     // Calculate black body radiation for TIR
@@ -53,9 +53,7 @@ int main(int argc, char** argv) {
 
     double* absorbed_radiance = new double[num_cohorts];
     calculate_absorbed_radiance(absorbed_radiance, 
-                                direct_profile_PAR, direct_profile_NIR, direct_profile_TIR, 
-                                up_diffuse_profile_PAR, up_diffuse_profile_NIR, up_diffuse_profile_TIR,
-                                down_diffuse_profile_PAR, down_diffuse_profile_NIR, down_diffuse_profile_TIR,
+                                direct_profile_PAR, direct_profile_NIR, direct_profile_TIR,
                                 num_cohorts);
 
     printf("Direct PAR");

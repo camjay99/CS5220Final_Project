@@ -8,7 +8,8 @@ double bisection(std::function<double(double)> func, double begin, double end, d
     int end_sign = (end > 0) - (end < 0);
 
     // Signs must be different to ensure existence of solution in the interval.
-    assert(begin_sign != end_sign);
+    if (begin_sign != end_sign)
+        return -1;
 
     double mid = (end - begin) / 2;
     double eval = func(mid);

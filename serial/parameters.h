@@ -11,7 +11,7 @@
 #define scat_ground_PAR         0.2   // Scattering coefficient for PAR on the ground (1 - scat_PAR is the absorbtion of PAR).
 #define backscat_PAR_direct     0.09   // Proporation of scattered direct radiation that is reflected.
 #define backscat_PAR_diffuse    0.09   // Proporation of scattered diffuse radiation that is reflected.
-#define incoming_direct_PAR     500.0 // Amount of incoming direct PAR (in the future, will be driven by climatic details)
+#define incoming_direct_PAR     20000.0 // Amount of incoming direct PAR (in the future, will be driven by climatic details)
 #define incoming_diffuse_PAR    0 // Amount of incoming diffuse PAR (in the future, will be driven by climatic details)
 
 // NIR parameters

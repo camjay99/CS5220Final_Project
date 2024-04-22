@@ -1,6 +1,7 @@
 #include <cmath>
 #include "parameters.h"
 #include "numerics.h"
+#include <cstdio>
 
 // Functions used for calculating photosynthesis of cohorts
 
@@ -89,19 +90,33 @@ double calculate_A(double F_A, double F_B, double F_C, double F_D,
                    double G_Wl, 
                    double G_Wlambda, double G_Clambda, double M, double gamma, 
                    double c_c, double w_c, double w_l, double dw, double leaf_respiration) {
-    double c_lmin = -(F_D*M - F_B) / (F_C*M - F_A);
-
-    double b = (G_Clambda*F_D + F_B - F_C*(G_Clambda*c_c + M)) / (G_Clambda*F_C);
-    double c = (F_B - F_D*(G_Clambda*c_c + M)) / (G_Clambda*F_C);
-    double c_lmax = (-b - std::sqrt(b*b - 4*c)) / 2;
-    c_lmax = (c_lmax < c_c ? c_lmax : c_c); // Ensure singularity is within realm of plausible values
-
     // Create lambda function to fill in parameters of F
     auto F_spef = [&G_Wl, &G_Wlambda, &M, &gamma, 
                    &c_c, &w_c, &w_l, &dw, &F_A, &F_B, &F_C, &F_D](double co2_mixing_ratio) 
                     -> double {return F(co2_mixing_ratio, G_Wl, G_Wlambda, M, gamma,
                                         c_c, w_c, w_l, dw, F_A, F_B, F_C, F_D);};
-    double co2_mixing_ratio = bisection(F_spef, c_lmin, c_lmax, 1e-6, 100);
+
+    double co2_mixing_ratio;
+
+    if (F_A == 0 && F_C == 0) {
+        co2_mixing_ratio = bisection(F_spef, 0, c_c, 1e-6, 100);
+    } else {
+        double c_lmin = -(F_D*M - F_B) / (F_C*M - F_A);
+
+        double c_lmax;
+        if (F_C == 0) {
+            // Eq S198 reduces to a linear function of c_lmax
+            c_lmax = (F_B - F_D*(G_Clambda*c_c + M))/(-F_B - F_D*G_Clambda);
+        } else {
+            double b = (G_Clambda*F_D + F_B - F_C*(G_Clambda*c_c + M)) / (G_Clambda*F_C);
+            double c = (F_B - F_D*(G_Clambda*c_c + M)) / (G_Clambda*F_C);
+            c_lmax = (-b - std::sqrt(b*b - 4*c)) / 2;
+        }
+        c_lmax = (c_lmax < c_c? c_lmax : c_c); // Ensure singularity is within realm of plausible values
+
+        co2_mixing_ratio = bisection(F_spef, c_lmin, c_lmax, 1e-6, 100);
+    }
+
     // If no roots in this range, assume stomata are closed and no photosynthesis is occurring.
     double A = (co2_mixing_ratio > 0 ? uptake(F_A, F_B, F_C, F_D, co2_mixing_ratio) : 0);
     return A - leaf_respiration;
@@ -180,6 +195,7 @@ double co2_mixing_ratio_solver_C4(double G_Wl,
 
 
     // Return the minimum estimate of A to reflect limiting conditions (Farquhar model)
+    //printf("Rubisco %f CO2 %f Light %f\n", A_rubisco, A_CO2, A_light);
     if ((A_rubisco < A_CO2) && (A_rubisco < A_light))
         return A_rubisco;
     else if (A_CO2 < A_light)
@@ -188,8 +204,11 @@ double co2_mixing_ratio_solver_C4(double G_Wl,
         return A_light;
 }
 
-double calculate_water_flux(int stomata, double LAI, double A) {
-    return stomata*LAI*M_w*A;
+double calculate_water_flux(int stomata, double LAI, double G_wlambda, double G_wl, double w_c, double temp, double p_c) {
+    double w_l = calculate_w_sat(temp, p_c);
+    double E = (G_wlambda*G_wl) / (G_wlambda + G_wl) * (w_c - w_l);
+    
+    return stomata*LAI*M_w*E;
 }
 
 double calculate_soil_cohort_enthalpy(double water_flux, double soil_temp) {

@@ -1,5 +1,7 @@
 #include <cmath>
 #include <cstdio>
+#include <iostream>
+#include <fstream>
 #include "parameters.h"
 #include "radiation_solver.h"
 #include "photosynthesis.h"
@@ -10,9 +12,10 @@
 // should incorporate additional cohorts that are each treated as seperate "big flat leaves."
 // Considerations for evapotranspiration, growth, diurnal cycles, etc. will be implemented in the future.
 
-int num_patches = 10;    // Number of patches to include in a grid cell
+int num_patches = 1;    // Number of patches to include in a grid cell
 int num_cohorts_per_patch = 500;
-double air_temp = 300;
+double max_air_temp = 298.15;
+double min_air_temp = 283.15;
 double wind_speed = 2;
 double air_density = 1.225;
 double G_Wl = 0.01;
@@ -34,7 +37,30 @@ double M = 9;
 double c_c = 400;
 double dw = 0.016;
 double w_c = 0.017;
-double dt = 0.5;
+double dt = 300;
+
+double calc_air_temp(double t) {
+    return (max_air_temp - min_air_temp) * std::sin(2 * t / (86400 * 3.14)) + (max_air_temp + min_air_temp) / 2;
+}
+
+double calc_temp_increment(double temp, double incoming_radiation, double incoming_PAR, double air_temp, double leaf_area, double mass) {
+    double G_Qlambda = calculate_G_Qlambda(air_temp, temp, leaf_size, wind_speed);
+    double G_Wlambda = calculate_G_Wlambda(G_Qlambda, air_density);
+    double Q_cohort_canopy = calculate_Q_cohort_canopy(leaf_area, air_density, G_Qlambda, air_temp, temp, w_c);
+    double G_Clambda = G_Wlambda/f_Glambda;
+
+    double A = co2_mixing_ratio_solver_C4(G_Wl, G_Wlambda, G_Clambda, M, c_c, w_c, dw, temp, Vcmax15, Q10Vcmax,
+                                           f_cold, f_hot, T_cold, T_hot,
+                                           incoming_PAR, f_clump, f_R, quantum_yield, p_c);
+
+    double water_flux = calculate_water_flux(stomata, leaf_area, G_Wlambda, G_Wl, w_c, temp, p_c);
+    double soil_cohort_enthalpy = calculate_soil_cohort_enthalpy(water_flux, soil_temp);
+    double cohort_CAS_enthalpy = calculate_cohort_CAS_enthalpy(water_flux, temp);
+
+    double total_enthalpy_change = (incoming_radiation - Q_cohort_canopy) + (soil_cohort_enthalpy - cohort_CAS_enthalpy);
+
+    return ((total_enthalpy_change) / (mass*((0.7*q_l_water + q_leaf)/1.7)));
+}
 
 int main(int argc, char** argv) {
     // As a temporary starting point, we can assume that each patch has ~500 thin cohorts, if we want in the future we can also consider different plant functional types so that parameters can be variable.
@@ -54,9 +80,7 @@ int main(int argc, char** argv) {
         double* direct_profile_NIR = new double[num_cohorts_per_patch+1];
         double* black_body_profile_TIR = new double[num_cohorts_per_patch+1];
 
-        // Calculate direct radiation profile 
-        calculate_direct_profile(direct_profile_PAR, num_cohorts_per_patch, incoming_direct_PAR);
-        calculate_direct_profile(direct_profile_NIR, num_cohorts_per_patch, incoming_direct_NIR);
+        
 
         // Set temperature
         for (int k = 0; k <= num_cohorts_per_patch; k++) {
@@ -67,36 +91,41 @@ int main(int argc, char** argv) {
         //calculate_black_body_profile(black_body_profile_TIR, temp_profile, num_cohorts);
 
         double* absorbed_radiance = new double[num_cohorts_per_patch];
-        calculate_absorbed_radiance(absorbed_radiance, 
+        
+
+        // Order could probably be changed to be more sensical, but this loops over all time steps.
+        std::ofstream output;
+            if ((p == 0))
+                output.open("C:/Users/camer/CS5220Final_Project/output.txt");
+        for (int i = 0; i < 2016; i++) {
+            // Calculate direct radiation profile 
+            calculate_direct_profile(direct_profile_PAR, num_cohorts_per_patch, incoming_direct_PAR);
+            calculate_direct_profile(direct_profile_NIR, num_cohorts_per_patch, incoming_direct_NIR);
+            calculate_absorbed_radiance(absorbed_radiance, 
                                     direct_profile_PAR, direct_profile_NIR, black_body_profile_TIR,
                                     num_cohorts_per_patch);
 
-        // Order could probably be changed to be more sensical, but this loops over all time steps.
-        for (int i = 0; i < 1000; i++) {
             // For each cohort in this patch
             for (int k = 0; k < num_cohorts_per_patch; k++) {
-                double G_Qlambda = calculate_G_Qlambda(air_temp, temp_profile[p*num_cohorts_per_patch + k], leaf_size, wind_speed);
-                double G_Wlambda = calculate_G_Wlambda(G_Qlambda, air_density);
-                double Q_cohort_canopy = calculate_Q_cohort_canopy(leaf_area_profile[p*num_cohorts_per_patch + k], air_density, G_Qlambda, air_temp, temp_profile[p*num_cohorts_per_patch + k], w_c);
-                double G_Clambda = G_Wlambda/f_Glambda;
-                // Calculate photosynthesis
-                double A = co2_mixing_ratio_solver_C4(G_Wl, G_Wlambda, G_Clambda, M, c_c, w_c, dw, temp_profile[p*num_cohorts_per_patch + k], Vcmax15, Q10Vcmax,
-                                           f_cold, f_hot, T_cold, T_hot,
-                                           direct_profile_PAR[k+1] - direct_profile_PAR[k], f_clump, f_R, quantum_yield, p_c);
+                double k1 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k], absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i), 
+                                    leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
 
-                double water_flux = calculate_water_flux(stomata, leaf_area_profile[p*num_cohorts_per_patch + k], G_Wlambda, G_Wl, w_c, temp_profile[p*num_cohorts_per_patch + k], p_c);
-                double soil_cohort_enthalpy = calculate_soil_cohort_enthalpy(water_flux, soil_temp);
-                double cohort_CAS_enthalpy = calculate_cohort_CAS_enthalpy(water_flux, temp_profile[p*num_cohorts_per_patch + k]);
-                //printf("A: %f\n", A);
-                double total_enthalpy_change = (absorbed_radiance[k] - Q_cohort_canopy) + (soil_cohort_enthalpy - cohort_CAS_enthalpy);
-                //printf("%f\t%f\t%f\t%f\n", absorbed_radiance[k], -Q_cohort_canopy, soil_cohort_enthalpy, -cohort_CAS_enthalpy);
-                // Update temperature.
-                temp_profile[p*num_cohorts_per_patch + k] += ((total_enthalpy_change) / (mass_profile[p*num_cohorts_per_patch + k]*((0.7*q_l_water + q_leaf)/1.7)))*dt;
+                double k2 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k] + k1*dt/2, absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i + dt/2), 
+                                    leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
+
+                double k3 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k] + k2*dt/2, absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i + dt/2), 
+                                    leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
+
+                double k4 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k] + k3*dt, absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i + dt), 
+                                    leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
+
+                temp_profile[p*num_cohorts_per_patch + k] += dt/6 * (k1 + 2*k2 + 2*k3 + k4);
             }
+            if ((p == 0))
+                    output << temp_profile[0] << "\n";
         }
-        //for (int k = 0; k < num_cohorts; k++) {
-        //    printf("Cohort %d, Temp %f\n", k, temp_profile[k]);
-        //}
+        if ((p == 0))
+                output.close();
     }
     return 1;
 }

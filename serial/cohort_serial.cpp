@@ -14,8 +14,7 @@
 
 int num_patches = 1;    // Number of patches to include in a grid cell
 int num_cohorts_per_patch = 500;
-double max_air_temp = 298.15;
-double min_air_temp = 283.15;
+
 double wind_speed = 2;
 double air_density = 1.225;
 double G_Wl = 0.01;
@@ -40,7 +39,7 @@ double w_c = 0.017;
 double dt = 300;
 
 double calc_air_temp(double t) {
-    return (max_air_temp - min_air_temp) * std::sin(2 * t / (86400 * 3.14)) + (max_air_temp + min_air_temp) / 2;
+    return (max_air_temp - min_air_temp) / 2 * std::sin(2 * 3.1415 * t / 86400)  + (max_air_temp + min_air_temp) / 2;
 }
 
 double calc_temp_increment(double temp, double incoming_radiation, double incoming_PAR, double air_temp, double leaf_area, double mass) {

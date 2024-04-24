@@ -11,7 +11,7 @@
 #define scat_ground_PAR         0.2   // Scattering coefficient for PAR on the ground (1 - scat_PAR is the absorbtion of PAR).
 #define backscat_PAR_direct     0.09   // Proporation of scattered direct radiation that is reflected.
 #define backscat_PAR_diffuse    0.09   // Proporation of scattered diffuse radiation that is reflected.
-#define incoming_direct_PAR     20000.0 // Amount of incoming direct PAR (in the future, will be driven by climatic details)
+#define incoming_direct_PAR     10000.0 // Amount of incoming direct PAR (in the future, will be driven by climatic details)
 #define incoming_diffuse_PAR    0 // Amount of incoming diffuse PAR (in the future, will be driven by climatic details)
 
 // NIR parameters
@@ -19,7 +19,7 @@
 #define scat_ground_NIR         0.2   // Scattering coefficient for NIR on the ground (1 - scat_NIR is the absorbtion of NIR).
 #define backscat_NIR_direct     0.577   // Proporation of scattered direct radiation that is reflected.
 #define backscat_NIR_diffuse    0.577   // Proporation of scattered diffuse radiation that is reflected.
-#define incoming_direct_NIR     500.0  // Amount of incoming direct NIR (in the future, will be driven by climatic details)
+#define incoming_direct_NIR     10000.0  // Amount of incoming direct NIR (in the future, will be driven by climatic details)
 #define incoming_diffuse_NIR    0  // Amount of incoming diffuse NIR (in the future, will be driven by climatic details)
 
 // TIR parameters
@@ -61,4 +61,7 @@
 #define q_pd                    1005      // Specific heat of dry air at constant pressure
 #define q_l_water               4186      // Specific heat of liquid water at constant pressure
 #define g                       9.807     // Gravity
+
+#define max_air_temp            298.15
+#define min_air_temp            283.15
 #endif

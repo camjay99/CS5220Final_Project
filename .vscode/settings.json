@@ -63,6 +63,7 @@
         "variant": "cpp",
         "condition_variable": "cpp",
         "cstdarg": "cpp",
-        "mutex": "cpp"
+        "mutex": "cpp",
+        "fstream": "cpp"
     }
 }

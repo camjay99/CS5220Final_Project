@@ -13,7 +13,7 @@
 // Considerations for evapotranspiration, growth, diurnal cycles, etc. will be implemented in the future.
 
 int num_patches = 1;    // Number of patches to include in a grid cell
-int num_cohorts_per_patch = 500;
+int num_cohorts_per_patch = 1;
 
 double wind_speed = 2;
 double air_density = 1.225;
@@ -40,6 +40,14 @@ double dt = 300;
 
 double calc_air_temp(double t) {
     return (max_air_temp - min_air_temp) / 2 * std::sin(2 * 3.1415 * t / 86400)  + (max_air_temp + min_air_temp) / 2;
+}
+
+double calc_incoming_PAR(double t) {
+    return incoming_direct_PAR / 2 * std::sin(2 * 3.1415 * (t - 7200) / 86400 )  + incoming_direct_PAR / 2;
+}
+
+double calc_incoming_NIR(double t) {
+    return incoming_direct_NIR / 2 * std::sin(2 * 3.1415 * (t - 7200) / 86400)  + incoming_direct_NIR/ 2;
 }
 
 double calc_temp_increment(double temp, double incoming_radiation, double incoming_PAR, double air_temp, double leaf_area, double mass) {
@@ -98,8 +106,8 @@ int main(int argc, char** argv) {
                 output.open("C:/Users/camer/CS5220Final_Project/output.txt");
         for (int i = 0; i < 2016; i++) {
             // Calculate direct radiation profile 
-            calculate_direct_profile(direct_profile_PAR, num_cohorts_per_patch, incoming_direct_PAR);
-            calculate_direct_profile(direct_profile_NIR, num_cohorts_per_patch, incoming_direct_NIR);
+            calculate_direct_profile(direct_profile_PAR, num_cohorts_per_patch, calc_incoming_PAR(i*dt));
+            calculate_direct_profile(direct_profile_NIR, num_cohorts_per_patch, calc_incoming_NIR(i*dt));
             calculate_absorbed_radiance(absorbed_radiance, 
                                     direct_profile_PAR, direct_profile_NIR, black_body_profile_TIR,
                                     num_cohorts_per_patch);

@@ -2,6 +2,8 @@
 #include "parameters.h"
 #include "numerics.h"
 #include <cstdio>
+#include <iostream>
+#include <fstream>
 
 // Functions used for calculating photosynthesis of cohorts
 
@@ -53,7 +55,7 @@ double calculate_w_sat(double temp, double p) {
 // ultimately calculating photosynthesis with respect to different limiting resources
 
 double uptake(double F_A, double F_B, double F_C, double F_D, double co2_mixing_ratio) {
-    return (F_A*co2_mixing_ratio - F_B) / (F_C*co2_mixing_ratio - F_D);
+    return (F_A*co2_mixing_ratio + F_B) / (F_C*co2_mixing_ratio + F_D);
 }
 
 double F_1(double co2_mixing_ratio, double G_Wl, double G_Wlambda, double M, double c_c,
@@ -69,9 +71,10 @@ double F_2(double co2_mixing_ratio, double G_Wl, double G_Wlambda, double M, dou
 }
 
 double F_3(double co2_mixing_ratio, double G_Wl, 
-           double G_Wlambda, double M, double gamma, double c_c, double w_c, double w_l, double dw, 
+           double G_Wlambda, double M, double c_c, double w_c, double w_l, double dw, 
            double F_A, double F_B, double F_C, double F_D) {
-    return 1 + (w_c - w_l) / (dw) * F_2(co2_mixing_ratio, G_Wl, G_Wlambda, M, gamma, c_c, F_A, F_B, F_C, F_D);
+    double A = uptake(F_A, F_B, F_C, F_D, co2_mixing_ratio);
+    return 1 + (w_c - w_l) / (dw) * (G_Wlambda*(c_c - co2_mixing_ratio) - f_Glambda*A) / (G_Wlambda*(c_c - co2_mixing_ratio) + (f_Gl - f_Glambda)*A);
 }
 
 double F(double co2_mixing_ratio, double G_Wl, 
@@ -82,7 +85,7 @@ double F(double co2_mixing_ratio, double G_Wl,
            F_2(co2_mixing_ratio, G_Wl, G_Wlambda, M, gamma, c_c,
                F_A, F_B, F_C, F_D) * 
            F_3(co2_mixing_ratio, G_Wl, 
-               G_Wlambda, M, gamma, c_c, w_c, w_l, dw, 
+               G_Wlambda, M, c_c, w_c, w_l, dw, 
                F_A, F_B, F_C, F_D) - 1;
 }
 
@@ -99,7 +102,14 @@ double calculate_A(double F_A, double F_B, double F_C, double F_D,
     double co2_mixing_ratio;
 
     if (F_A == 0 && F_C == 0) {
-        co2_mixing_ratio = bisection(F_spef, 0, c_c, 1e-6, 100);
+        co2_mixing_ratio = bisection(F_spef, 0, 5000, 1e-3, 1000);
+        /*
+        std::ofstream test;
+        test.open("C:/Users/camer/CS5220Final_Project/test.txt");
+        for (int k = 0; k < 5000; k++) {
+            test << F_spef(k) << "\n";
+        }
+        test.close();*/
     } else {
         double c_lmin = -(F_D*M - F_B) / (F_C*M - F_A);
 
@@ -193,7 +203,7 @@ double co2_mixing_ratio_solver_C4(double G_Wl,
                                    G_Wlambda, G_Clambda, M, 0, 
                                    c_c, w_c, w_l, dw, leaf_respiration);
 
-
+    //printf("%f %f %f\n", A_rubisco, A_CO2, A_light);
     // Return the minimum estimate of A to reflect limiting conditions (Farquhar model)
     //printf("Rubisco %f CO2 %f Light %f\n", A_rubisco, A_CO2, A_light);
     if ((A_rubisco < A_CO2) && (A_rubisco < A_light))

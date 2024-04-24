@@ -1,12 +1,15 @@
 // Define any basic numerical functions needed for the program
 #include <cassert>
 #include <functional>
+#include <cstdio>
+#include <iostream>
+#include <fstream>
 
 // A simple bisection method for root-finding.
 double bisection(std::function<double(double)> func, double begin, double end, double tol, int num_iters) {
-    int begin_sign = (begin > 0) - (begin < 0);
-    int end_sign = (end > 0) - (end < 0);
-
+    int begin_sign = (func(begin) > 0) - (func(begin) < 0);
+    int end_sign = (func(end) > 0) - (func(end) < 0);
+    //printf("%d %d\n", begin_sign, end_sign);
     // Signs must be different to ensure existence of solution in the interval.
     if (begin_sign != end_sign)
         return -1;
@@ -16,7 +19,7 @@ double bisection(std::function<double(double)> func, double begin, double end, d
     double i = 0;
     while (eval > tol) {
         // Update endpoints of search interval based on the sign of the current midpoint
-        if (((mid > 0) - (mid < 0)) == begin_sign) {
+        if (((eval > 0) - (eval < 0)) == begin_sign) {
             begin = mid;
         } else {
             end = mid;

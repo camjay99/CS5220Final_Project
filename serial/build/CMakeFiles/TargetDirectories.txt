@@ -1,0 +1,3 @@
+/global/homes/c/camjay99/CS5220Final_Project/serial/build/CMakeFiles/serial.dir
+/global/homes/c/camjay99/CS5220Final_Project/serial/build/CMakeFiles/edit_cache.dir
+/global/homes/c/camjay99/CS5220Final_Project/serial/build/CMakeFiles/rebuild_cache.dir

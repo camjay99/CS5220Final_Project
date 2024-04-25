@@ -134,5 +134,5 @@ int main(int argc, char** argv) {
         if ((p == 0))
                 output.close();
     }
-    return 1;
+    return 0;
 }

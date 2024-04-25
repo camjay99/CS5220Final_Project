@@ -1,0 +1,9 @@
+#!/bin/bash
+#SBATCH -N 1
+#SBATCH -C cpu
+#SBATCH -q debug
+#SBATCH -J cs5220
+#SBATCH -t 00:02:00
+
+#run the application:
+srun -n 1 -c 1 --cpu_bind=cores ./serial

@@ -1,5 +1,6 @@
 #include <cmath>
 #include <cstdio>
+#include <random>
 #include <iostream>
 #include <fstream>
 #include "parameters.h"
@@ -13,8 +14,12 @@
 // Considerations for evapotranspiration, growth, diurnal cycles, etc. will be implemented in the future.
 
 int num_patches = 1;    // Number of patches to include in a grid cell
-int num_cohorts_per_patch = 1;
+int num_cohorts_per_patch = 5;
+int seed = 42;
+double dt = 300;
+bool print_output = true;
 
+// PFT and related stats.
 double wind_speed = 2;
 double air_density = 1.225;
 double G_Wl = 0.01;
@@ -36,7 +41,6 @@ double M = 9;
 double c_c = 400;
 double dw = 0.016;
 double w_c = 0.017;
-double dt = 300;
 
 double calc_air_temp(double t) {
     return (max_air_temp - min_air_temp) / 2 * std::sin(2 * 3.1415 * t / 86400)  + (max_air_temp + min_air_temp) / 2;
@@ -72,44 +76,43 @@ double calc_temp_increment(double temp, double incoming_radiation, double incomi
 int main(int argc, char** argv) {
     // As a temporary starting point, we can assume that each patch has ~500 thin cohorts, if we want in the future we can also consider different plant functional types so that parameters can be variable.
 
-    // Initalize patch structure in the future, randomize these
+    // Initalize patch structure to random values
+    std::random_device rd;
+    std::mt19937 gen(seed ? seed : rd());
+    std::uniform_real_distribution la_rd(3., 5.);
+    std::uniform_real_distribution m_rd(90., 110.);
+
     double* leaf_area_profile = new double[num_patches*num_cohorts_per_patch];
     double* mass_profile = new double[num_patches*num_cohorts_per_patch];
     for (int k = 0; k < num_patches*num_cohorts_per_patch; k++) {
-        leaf_area_profile[k] = 4;
-        mass_profile[k] = 100;
+        leaf_area_profile[k] = la_rd(gen);
+        mass_profile[k] = m_rd(gen);
+        printf("%d\t%f\t%f\n", k, leaf_area_profile[k], mass_profile[k]);
     }
+
+    // No need to randomize temp_profiles, as the will quickly converge to long-term behavior.
     double* temp_profile = new double[num_patches*num_cohorts_per_patch];
     
+    // Set temperature
+    for (int k = 0; k < num_patches*num_cohorts_per_patch; k++) {
+        temp_profile[k] = 298.15;
+    }
+
     // For each patch
     for (int p = 0; p < num_patches; p++) {
         double* direct_profile_PAR = new double[num_cohorts_per_patch+1];
         double* direct_profile_NIR = new double[num_cohorts_per_patch+1];
-        double* black_body_profile_TIR = new double[num_cohorts_per_patch+1];
-
-        
-
-        // Set temperature
-        for (int k = 0; k <= num_cohorts_per_patch; k++) {
-            temp_profile[p*num_cohorts_per_patch + k] = 298.15;
-        }
-
-        // Calculate black body radiation for TIR
-        //calculate_black_body_profile(black_body_profile_TIR, temp_profile, num_cohorts);
-
         double* absorbed_radiance = new double[num_cohorts_per_patch];
-        
-
         // Order could probably be changed to be more sensical, but this loops over all time steps.
         std::ofstream output;
-            if ((p == 0))
-                output.open("C:/Users/camer/CS5220Final_Project/output.txt");
+        if ((p == 0) && print_output)
+            output.open("C:/Users/camer/CS5220Final_Project/output.txt");
         for (int i = 0; i < 2016; i++) {
             // Calculate direct radiation profile 
             calculate_direct_profile(direct_profile_PAR, num_cohorts_per_patch, calc_incoming_PAR(i*dt));
             calculate_direct_profile(direct_profile_NIR, num_cohorts_per_patch, calc_incoming_NIR(i*dt));
             calculate_absorbed_radiance(absorbed_radiance, 
-                                    direct_profile_PAR, direct_profile_NIR, black_body_profile_TIR,
+                                    direct_profile_PAR, direct_profile_NIR,
                                     num_cohorts_per_patch);
 
             // For each cohort in this patch
@@ -127,12 +130,15 @@ int main(int argc, char** argv) {
                                     leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
 
                 temp_profile[p*num_cohorts_per_patch + k] += dt/6 * (k1 + 2*k2 + 2*k3 + k4);
+
+                if ((p == 0) && print_output)
+                    output << temp_profile[k] << "\t";
             }
-            if ((p == 0))
-                    output << temp_profile[0] << "\n";
+            if ((p == 0) && print_output)
+                    output << "\n";
         }
-        if ((p == 0))
+        if ((p == 0) && print_output)
                 output.close();
     }
-    return 1;
+    return 0;
 }

@@ -11,6 +11,6 @@ void calculate_black_body_profile(double* black_body_profile, double* temp_profi
 
 // Uses radiation profiles to determines cohort level absorbed radiance. Absorbed radiance array should be of length num_cohorts.
 void calculate_absorbed_radiance(double* absorbed_radiance, 
-                                 double* direct_PAR_profile, double* direct_NIR_profile, double* black_body_TIR_profile, 
+                                 double* direct_PAR_profile, double* direct_NIR_profile,
                                  int num_cohorts);
 #endif

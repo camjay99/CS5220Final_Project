@@ -15,11 +15,10 @@ void calculate_direct_profile(double* direct_profile, int num_cohorts, double in
 }
 
 // Uses radiation profiles to determines cohort level absorbed radiance. Absorbed radiance array should be of length num_cohorts.
-void calculate_absorbed_radiance(double* absorbed_radiance, double* direct_PAR_profile, double* direct_NIR_profile, double* black_body_TIR_profile, int num_cohorts) {
+void calculate_absorbed_radiance(double* absorbed_radiance, double* direct_PAR_profile, double* direct_NIR_profile, int num_cohorts) {
     for (int k = 0; k < num_cohorts; k++) {
         absorbed_radiance[k] = direct_PAR_profile[k+1] - direct_PAR_profile[k] +
-                               direct_NIR_profile[k+1] - direct_NIR_profile[k] -
-                               black_body_TIR_profile[k];
+                               direct_NIR_profile[k+1] - direct_NIR_profile[k];
     }
 }
 

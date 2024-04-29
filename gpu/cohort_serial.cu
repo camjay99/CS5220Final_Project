@@ -109,15 +109,14 @@ int main(int argc, char** argv) {
     auto start_time = std::chrono::steady_clock::now();
 
     // For each patch
-    for (int p = 0; p < num_patches; p++) {
-        double* direct_profile_PAR = new double[num_cohorts_per_patch+1];
-        double* direct_profile_NIR = new double[num_cohorts_per_patch+1];
-        double* absorbed_radiance = new double[num_cohorts_per_patch];
-        // Order could probably be changed to be more sensical, but this loops over all time steps.
-        std::ofstream output;
-        if ((p == 0) && print_output)
-            output.open("C:/Users/camer/CS5220Final_Project/output.txt");
-        for (int i = 0; i < 2016; i++) {
+    for (int i = 0; i < 2016; i++) {
+        // std::ofstream output;
+        // if ((p == 0) && print_output)
+        //     output.open("C:/Users/camer/CS5220Final_Project/output.txt");
+        for (int p = 0; p < num_patches; p++) {
+            double* direct_profile_PAR = new double[num_cohorts_per_patch+1];
+            double* direct_profile_NIR = new double[num_cohorts_per_patch+1];
+            double* absorbed_radiance = new double[num_cohorts_per_patch];
             // Calculate direct radiation profile 
             calculate_direct_profile(direct_profile_PAR, num_cohorts_per_patch, calc_incoming_PAR(i*dt));
             calculate_direct_profile(direct_profile_NIR, num_cohorts_per_patch, calc_incoming_NIR(i*dt));
@@ -141,14 +140,14 @@ int main(int argc, char** argv) {
 
                 temp_profile[p*num_cohorts_per_patch + k] += dt/6 * (k1 + 2*k2 + 2*k3 + k4);
 
-                if ((p == 0) && print_output)
-                    output << temp_profile[k] << "\t";
+                // if ((p == 0) && print_output)
+                //     output << temp_profile[k] << "\t";
             }
-            if ((p == 0) && print_output)
-                    output << "\n";
+            // if ((p == 0) && print_output)
+            //         output << "\n";
         }
-        if ((p == 0) && print_output)
-                output.close();
+        // if ((p == 0) && print_output)
+        //         output.close();
     }
 
     auto end_time = std::chrono::steady_clock::now();
@@ -160,4 +159,8 @@ int main(int argc, char** argv) {
                   << " patches with " << num_cohorts_per_patch << " cohorts per patch.\n";
     
     return 0;
+}
+
+__global__ void simulate_one_step() {
+    
 }

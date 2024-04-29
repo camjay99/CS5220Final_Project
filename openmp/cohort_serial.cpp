@@ -3,6 +3,7 @@
 #include <random>
 #include <iostream>
 #include <fstream>
+#include <chrono>
 #include "parameters.h"
 #include "radiation_solver.h"
 #include "photosynthesis.h"
@@ -119,6 +120,9 @@ int main(int argc, char **argv)
      However, I dont think that it really makes sense other than that the cache utilization is good
     Because, if we extend this to include interactions (theoretically), then we wld have to account for interactions as well, and then wld
      need access to the correct timestep */
+    
+    // Starting simulation algorithm
+    auto start_time = std::chrono::steady_clock::now();
 
     // Order could probably be changed to be more sensical, but this loops over all time steps.
     for (int i = 0; i < 2016; i++)
@@ -165,5 +169,14 @@ int main(int argc, char **argv)
         if (print_output)
             output.close();
     }
+
+    auto end_time = std::chrono::steady_clock::now();
+
+    std::chrono::duration<double> diff = end_time - start_time;
+    double seconds = diff.count();
+
+    std::cout << "Simulation Time = " << seconds << " seconds for " << num_patches
+                  << " patches with " << num_cohorts_per_patch << " cohorts per patch.\n";
+
     return 0;
 }

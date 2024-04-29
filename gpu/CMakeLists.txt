@@ -25,9 +25,9 @@ if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
             "module swap ${Prg-${CMAKE_C_COMPILER_ID}} PrgEnv-gnu")
 endif ()
 
-add_executable(gpu canopy_air_space.cpp canopy_air_space.h cohort_serial.cpp numerics.cu numerics.h parameters.h photosynthesis.cpp photosynthesis.h radiation_solver.cpp radiation_solver.h)
+add_executable(gpu canopy_air_space.cpp canopy_air_space.h cohort_serial.cu numerics.cu numerics.h parameters.h photosynthesis.cu photosynthesis.h radiation_solver.cpp radiation_solver.h)
 target_compile_features(gpu PRIVATE cxx_std_11)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_60")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_60 --extended-lambda")
 
 # Copy the job scripts
 #configure_file(job-gpu job-gpu COPYONLY)

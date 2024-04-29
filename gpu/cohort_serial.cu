@@ -14,8 +14,8 @@
 // should incorporate additional cohorts that are each treated as seperate "big flat leaves."
 // Considerations for evapotranspiration, growth, diurnal cycles, etc. will be implemented in the future.
 
-int num_patches = 1;    // Number of patches to include in a grid cell
-int num_cohorts_per_patch = 5;
+int num_patches = 10;    // Number of patches to include in a grid cell
+int num_cohorts_per_patch = 20;
 int seed = 42;
 double dt = 300;
 bool print_output = true;
@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
 
             // For each cohort in this patch
             for (int k = 0; k < num_cohorts_per_patch; k++) {
-                double k1 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k], absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i), 
+                double k1 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k],           absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i), 
                                     leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
 
                 double k2 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k] + k1*dt/2, absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i + dt/2), 
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
                 double k3 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k] + k2*dt/2, absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i + dt/2), 
                                     leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
 
-                double k4 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k] + k3*dt, absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i + dt), 
+                double k4 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k] + k3*dt,   absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i + dt), 
                                     leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
 
                 temp_profile[p*num_cohorts_per_patch + k] += dt/6 * (k1 + 2*k2 + 2*k3 + k4);

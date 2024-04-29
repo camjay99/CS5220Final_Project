@@ -14,8 +14,8 @@
 // should incorporate additional cohorts that are each treated as seperate "big flat leaves."
 // Considerations for evapotranspiration, growth, diurnal cycles, etc. will be implemented in the future.
 
-int num_patches = 10;    // Number of patches to include in a grid cell
-int num_cohorts_per_patch = 20;
+int num_patches;    // Number of patches to include in a grid cell
+int num_cohorts_per_patch;
 int seed = 42;
 double dt = 300;
 bool print_output = true;
@@ -76,6 +76,12 @@ double calc_temp_increment(double temp, double incoming_radiation, double incomi
 
 int main(int argc, char** argv) {
     // As a temporary starting point, we can assume that each patch has ~500 thin cohorts, if we want in the future we can also consider different plant functional types so that parameters can be variable.
+    if (argc < 3) {
+        printf("Error: please argue num_patches and num_cohorts_per_patch (in that order)\n");
+        return -1;
+    }
+    num_patches = atoi((argv[1]));
+    num_cohorts_per_patch = atoi((argv[2]));
 
     // Initalize patch structure to random values
     std::random_device rd;

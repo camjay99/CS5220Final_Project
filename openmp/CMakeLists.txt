@@ -25,4 +25,4 @@ if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
             "module swap ${Prg-${CMAKE_C_COMPILER_ID}} PrgEnv-gnu")
 endif ()
 
-add_executable(serial cohort_serial.cpp canopy_air_space.cpp canopy_air_space.h numerics.cpp numerics.h photosynthesis.cpp photosynthesis.h radiation_solver.cpp radiation_solver.h parameters.h)
+add_executable(openmp cohort_serial.cpp canopy_air_space.cpp canopy_air_space.h numerics.cpp numerics.h photosynthesis.cpp photosynthesis.h radiation_solver.cpp radiation_solver.h parameters.h)

@@ -77,18 +77,15 @@ double calc_temp_increment(double temp, double incoming_radiation, double incomi
     return ((total_enthalpy_change) / (mass * ((0.7 * q_l_water + q_leaf) / 1.7)));
 }
 
-int main(int argc, char **argv)
+void init_patches(double *leaf_area_profile, double *mass_profile, double *temp_profile)
 {
-    // As a temporary starting point, we can assume that each patch has ~500 thin cohorts, if we want in the future we can also consider different plant functional types so that parameters can be variable.
-
     // Initalize patch structure to random values
     std::random_device rd;
     std::mt19937 gen(seed ? seed : rd());
     std::uniform_real_distribution<double> la_rd(3., 5.);
     std::uniform_real_distribution<double> m_rd(90., 110.);
 
-    double *leaf_area_profile = new double[num_patches * num_cohorts_per_patch];
-    double *mass_profile = new double[num_patches * num_cohorts_per_patch];
+#pragma omp parallel for
     for (int k = 0; k < num_patches * num_cohorts_per_patch; k++)
     {
         leaf_area_profile[k] = la_rd(gen);
@@ -96,27 +93,45 @@ int main(int argc, char **argv)
         printf("%d\t%f\t%f\n", k, leaf_area_profile[k], mass_profile[k]);
     }
 
-    // No need to randomize temp_profiles, as the will quickly converge to long-term behavior.
-    double *temp_profile = new double[num_patches * num_cohorts_per_patch];
-
-    // Set temperature
+// Set temperature
+#pragma omp parallel for
     for (int k = 0; k < num_patches * num_cohorts_per_patch; k++)
     {
         temp_profile[k] = 298.15;
     }
+}
 
-    // For each patch
-    for (int p = 0; p < num_patches; p++)
+int main(int argc, char **argv)
+{
+    // As a temporary starting point, we can assume that each patch has ~500 thin cohorts, if we want in the future we can also consider different plant functional types so that parameters can be variable.
+    double *leaf_area_profile = new double[num_patches * num_cohorts_per_patch];
+    double *mass_profile = new double[num_patches * num_cohorts_per_patch];
+    double *temp_profile = new double[num_patches * num_cohorts_per_patch];
+
+    init_patches(leaf_area_profile, mass_profile, temp_profile);
+
+    // TODO: update this :-)
+    std::ofstream output;
+    if (print_output)
+        output.open("C:/Users/camer/CS5220Final_Project/output.txt");
+
+    /* NOTE: I think its actually faster to iterate over the patches, bcuz serially would have the best cache utilization...
+     However, I dont think that it really makes sense other than that the cache utilization is good
+    Because, if we extend this to include interactions (theoretically), then we wld have to account for interactions as well, and then wld
+     need access to the correct timestep */
+
+    // Order could probably be changed to be more sensical, but this loops over all time steps.
+    for (int i = 0; i < 2016; i++)
     {
-        double *direct_profile_PAR = new double[num_cohorts_per_patch + 1];
-        double *direct_profile_NIR = new double[num_cohorts_per_patch + 1];
-        double *absorbed_radiance = new double[num_cohorts_per_patch];
-        // Order could probably be changed to be more sensical, but this loops over all time steps.
-        std::ofstream output;
-        if ((p == 0) && print_output)
-            output.open("C:/Users/camer/CS5220Final_Project/output.txt");
-        for (int i = 0; i < 2016; i++)
+
+// For each patch
+#pragma omp parallel for
+        for (int p = 0; p < num_patches; p++)
         {
+            double *direct_profile_PAR = new double[num_cohorts_per_patch + 1];
+            double *direct_profile_NIR = new double[num_cohorts_per_patch + 1];
+            double *absorbed_radiance = new double[num_cohorts_per_patch];
+
             // Calculate direct radiation profile
             calculate_direct_profile(direct_profile_PAR, num_cohorts_per_patch, calc_incoming_PAR(i * dt));
             calculate_direct_profile(direct_profile_NIR, num_cohorts_per_patch, calc_incoming_NIR(i * dt));
@@ -147,7 +162,7 @@ int main(int argc, char **argv)
             if ((p == 0) && print_output)
                 output << "\n";
         }
-        if ((p == 0) && print_output)
+        if (print_output)
             output.close();
     }
     return 0;

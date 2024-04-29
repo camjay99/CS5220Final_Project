@@ -7,7 +7,7 @@
 
 // A simple bisection method for root-finding.
 template <typename Function>
-__device__ double bisection(F func, double begin, double end, double tol, int num_iters) {
+__device__ double bisection(std::function<double(double)> func, double begin, double end, double tol, int num_iters) {
     int begin_sign = (func(begin) > 0) - (func(begin) < 0);
     int end_sign = (func(end) > 0) - (func(end) < 0);
     //printf("%d %d\n", begin_sign, end_sign);

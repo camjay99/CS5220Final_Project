@@ -80,8 +80,8 @@ int main(int argc, char** argv) {
     // Initalize patch structure to random values
     std::random_device rd;
     std::mt19937 gen(seed ? seed : rd());
-    std::uniform_real_distribution la_rd(3., 5.);
-    std::uniform_real_distribution m_rd(90., 110.);
+    std::uniform_real_distribution<> la_rd(3., 5.);
+    std::uniform_real_distribution<> m_rd(90., 110.);
 
     double* leaf_area_profile = new double[num_patches*num_cohorts_per_patch];
     double* mass_profile = new double[num_patches*num_cohorts_per_patch];

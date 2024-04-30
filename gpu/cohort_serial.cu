@@ -6,9 +6,9 @@
 #include <chrono>
 #include <cuda.h>
 #include "parameters.h"
-#include "radiation_solver.cu"
-#include "photosynthesis.cu"
-#include "canopy_air_space.cu"
+#include "radiation_solver.h"
+#include "photosynthesis.h"
+#include "canopy_air_space.h"
 
 #define NUM_THREADS 256
 int blks;
@@ -165,9 +165,6 @@ int main(int argc, char** argv) {
     for (int k = 0; k < num_patches*num_cohorts_per_patch; k++) {
         temp_profile[k] = 298.15 + k;
     }
-    
-    // Starting simulation algorithm
-    auto start_time = std::chrono::steady_clock::now();
 
 
     // alloc GPU space
@@ -183,6 +180,9 @@ int main(int argc, char** argv) {
 
     cudaMalloc((void **)&mass_profile_dev ,       (num_cohorts_per_patch)     * sizeof(double) );
     cudaMemcpy(mass_profile_dev, mass_profile, num_patches * num_cohorts_per_patch * sizeof(double), cudaMemcpyHostToDevice);
+	
+    // Starting simulation algorithm
+    auto start_time = std::chrono::stead_clock::now()
 
     // for each time step
     for (int i = 0; i < 2016; i++) {

@@ -182,7 +182,7 @@ int main(int argc, char** argv) {
     cudaMemcpy(mass_profile_dev, mass_profile, num_patches * num_cohorts_per_patch * sizeof(double), cudaMemcpyHostToDevice);
 	
     // Starting simulation algorithm
-    auto start_time = std::chrono::stead_clock::now()
+    auto start_time = std::chrono::steady_clock::now();
 
     // for each time step
     for (int i = 0; i < 2016; i++) {
@@ -190,7 +190,7 @@ int main(int argc, char** argv) {
         //printf("%d", i);
 
         simulate_one_step<<<blks, NUM_THREADS>>>(num_patches, num_cohorts_per_patch, i, temp_profile_dev, leaf_area_profile_dev, mass_profile_dev);
-
+	cudaDeviceSynchronize();
     }
 
     //printf("\n%d\n", blks);
@@ -199,7 +199,8 @@ int main(int argc, char** argv) {
     cudaMemcpy(temp_profile, temp_profile_dev, num_patches * num_cohorts_per_patch * sizeof(double), cudaMemcpyDeviceToHost); // copy data back from gpu
 
     printf("\n%f %f %f %f\n", temp_profile[0], temp_profile[1], temp_profile[2], temp_profile[3]);
-
+    
+    cudaDeviceSynchronize();
     auto end_time = std::chrono::steady_clock::now();
 
     std::chrono::duration<double> diff = end_time - start_time;

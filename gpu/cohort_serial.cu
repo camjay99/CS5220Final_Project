@@ -211,13 +211,13 @@ int main(int argc, char** argv) {
 
     //printf("\n%d\n", blks);
     //printf("%d\n", NUM_THREADS);
+    
+    cudaDeviceSynchronize();
+    auto end_time = std::chrono::steady_clock::now();
 
     cudaMemcpy(temp_profile, temp_profile_dev, num_patches * num_cohorts_per_patch * sizeof(double), cudaMemcpyDeviceToHost); // copy data back from gpu
 
     printf("\n%f %f %f %f\n", temp_profile[0], temp_profile[1], temp_profile[2], temp_profile[3]);
-    
-    cudaDeviceSynchronize();
-    auto end_time = std::chrono::steady_clock::now();
 
     std::chrono::duration<double> diff = end_time - start_time;
     double seconds = diff.count();

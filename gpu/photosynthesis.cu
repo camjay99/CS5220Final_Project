@@ -1,6 +1,6 @@
 #include <cmath>
 #include "parameters.h"
-#include "numerics.h"
+#include "numerics.cu"
 #include <cstdio>
 #include <iostream>
 #include <fstream>

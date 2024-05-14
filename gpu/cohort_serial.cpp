@@ -88,7 +88,6 @@ int main(int argc, char** argv) {
     for (int k = 0; k < num_patches*num_cohorts_per_patch; k++) {
         leaf_area_profile[k] = la_rd(gen);
         mass_profile[k] = m_rd(gen);
-        printf("%d\t%f\t%f\n", k, leaf_area_profile[k], mass_profile[k]);
     }
 
     // No need to randomize temp_profiles, as the will quickly converge to long-term behavior.

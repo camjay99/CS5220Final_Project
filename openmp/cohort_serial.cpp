@@ -161,7 +161,6 @@ int main(int argc, char **argv)
             double *direct_profile_NIR = new double[num_cohorts_per_patch + 1];
             double *absorbed_radiance = new double[num_cohorts_per_patch];
 
-#pragma omp for
             for (int i = 0; i < 2016; i++)
             {
 
@@ -173,6 +172,7 @@ int main(int argc, char **argv)
                                             num_cohorts_per_patch);
 
                 // For each cohort in this patch
+#pragma omp for
                 for (int k = 0; k < num_cohorts_per_patch; k++)
                 {
 

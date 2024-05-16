@@ -135,7 +135,6 @@ int main(int argc, char **argv)
 
     init_patches(leaf_area_profile, mass_profile, temp_profile);
 
-    // TODO: update this :-)
     std::ofstream output;
     if (print_output)
         output.open("C:/Users/camer/CS5220Final_Project/output.txt");
@@ -176,7 +175,6 @@ int main(int argc, char **argv)
                 // For each cohort in this patch
                 for (int k = 0; k < num_cohorts_per_patch; k++)
                 {
-                    // TODO: this isnt exactly correct idt
 
                     double k1 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k], absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i),
                                                     leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);

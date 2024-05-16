@@ -4,6 +4,8 @@ project(Final_Project)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
+find_package(OpenMP REQUIRED)
+
 # Group number
 set(GROUP_NO 00 CACHE STRING "Your group number (two digits)")
 
@@ -26,3 +28,4 @@ if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
 endif ()
 
 add_executable(openmp cohort_serial.cpp canopy_air_space.cpp canopy_air_space.h numerics.cpp numerics.h photosynthesis.cpp photosynthesis.h radiation_solver.cpp radiation_solver.h parameters.h)
+target_link_libraries(openmp PRIVATE OpenMP::OpenMP_CXX)

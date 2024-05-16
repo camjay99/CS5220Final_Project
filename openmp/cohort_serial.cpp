@@ -8,14 +8,15 @@
 #include "radiation_solver.h"
 #include "photosynthesis.h"
 #include "canopy_air_space.h"
+#include <omp.h>
 
 // As a first order operation, we are going to begin with a single cohort and implement a simple
 // multi-layer two-stream model that considers one "big flat leaf" and the ground for three different bands. Future versions
 // should incorporate additional cohorts that are each treated as seperate "big flat leaves."
 // Considerations for evapotranspiration, growth, diurnal cycles, etc. will be implemented in the future.
 
-int num_patches = 1; // Number of patches to include in a grid cell
-int num_cohorts_per_patch = 5;
+int num_patches = 64; // Number of patches to include in a grid cell
+int num_cohorts_per_patch = 500;
 int seed = 42;
 double dt = 300;
 bool print_output = true;
@@ -86,24 +87,47 @@ void init_patches(double *leaf_area_profile, double *mass_profile, double *temp_
     std::uniform_real_distribution<double> la_rd(3., 5.);
     std::uniform_real_distribution<double> m_rd(90., 110.);
 
-#pragma omp parallel for
     for (int k = 0; k < num_patches * num_cohorts_per_patch; k++)
     {
         leaf_area_profile[k] = la_rd(gen);
         mass_profile[k] = m_rd(gen);
-        printf("%d\t%f\t%f\n", k, leaf_area_profile[k], mass_profile[k]);
+        // printf("%d\t%f\t%f\n", k, leaf_area_profile[k], mass_profile[k]);
     }
 
-// Set temperature
-#pragma omp parallel for
+    // Set temperature
     for (int k = 0; k < num_patches * num_cohorts_per_patch; k++)
     {
         temp_profile[k] = 298.15;
     }
 }
 
+// Split into even and odd numbers between barriers, but to reduce interactions split into 16
+void calculate_patch_step(double *leaf_area_profile, double *mass_profile, double *temp_profile, double *absorbed_radiance, double *direct_profile_PAR, int p, int i, int offset)
+{
+    for (int k = 0; k < num_cohorts_per_patch; k++)
+    {
+        double k1 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k], absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i),
+                                        leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
+
+        double k2 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k] + k1 * dt / 2, absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i + dt / 2),
+                                        leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
+
+        double k3 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k] + k2 * dt / 2, absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i + dt / 2),
+                                        leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
+
+        double k4 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k] + k3 * dt, absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i + dt),
+                                        leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
+
+        temp_profile[p * num_cohorts_per_patch + k] += dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
+    }
+}
+
 int main(int argc, char **argv)
 {
+    std::cout << "Number of processors available: " << omp_get_num_procs() << std::endl;
+    std::cout << "Maximum number of threads: " << omp_get_max_threads() << std::endl;
+    std::cout << "Number of processes " << omp_get_num_procs() << std::endl;
+
     // As a temporary starting point, we can assume that each patch has ~500 thin cohorts, if we want in the future we can also consider different plant functional types so that parameters can be variable.
     double *leaf_area_profile = new double[num_patches * num_cohorts_per_patch];
     double *mass_profile = new double[num_patches * num_cohorts_per_patch];
@@ -120,63 +144,75 @@ int main(int argc, char **argv)
      However, I dont think that it really makes sense other than that the cache utilization is good
     Because, if we extend this to include interactions (theoretically), then we wld have to account for interactions as well, and then wld
      need access to the correct timestep */
-    
+
     // Starting simulation algorithm
     auto start_time = std::chrono::steady_clock::now();
 
-    // Order could probably be changed to be more sensical, but this loops over all time steps.
-    for (int i = 0; i < 2016; i++)
+#pragma omp parallel default(shared)
     {
+#pragma omp single
+        {
+            std::cout << "The integer is: " << omp_get_num_threads() << std::endl;
+        }
+        // Order could probably be changed to be more sensical, but this loops over all time steps.
 
-// For each patch
-#pragma omp parallel for
         for (int p = 0; p < num_patches; p++)
         {
             double *direct_profile_PAR = new double[num_cohorts_per_patch + 1];
             double *direct_profile_NIR = new double[num_cohorts_per_patch + 1];
             double *absorbed_radiance = new double[num_cohorts_per_patch];
 
-            // Calculate direct radiation profile
-            calculate_direct_profile(direct_profile_PAR, num_cohorts_per_patch, calc_incoming_PAR(i * dt));
-            calculate_direct_profile(direct_profile_NIR, num_cohorts_per_patch, calc_incoming_NIR(i * dt));
-            calculate_absorbed_radiance(absorbed_radiance,
-                                        direct_profile_PAR, direct_profile_NIR,
-                                        num_cohorts_per_patch);
-
-            // For each cohort in this patch
-            for (int k = 0; k < num_cohorts_per_patch; k++)
+#pragma omp for
+            for (int i = 0; i < 2016; i++)
             {
-                double k1 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k], absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i),
-                                                leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
 
-                double k2 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k] + k1 * dt / 2, absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i + dt / 2),
-                                                leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
+                // Calculate direct radiation profile
+                calculate_direct_profile(direct_profile_PAR, num_cohorts_per_patch, calc_incoming_PAR(i * dt));
+                calculate_direct_profile(direct_profile_NIR, num_cohorts_per_patch, calc_incoming_NIR(i * dt));
+                calculate_absorbed_radiance(absorbed_radiance,
+                                            direct_profile_PAR, direct_profile_NIR,
+                                            num_cohorts_per_patch);
 
-                double k3 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k] + k2 * dt / 2, absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i + dt / 2),
-                                                leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
+                // For each cohort in this patch
+                for (int k = 0; k < num_cohorts_per_patch; k++)
+                {
+                    // TODO: this isnt exactly correct idt
 
-                double k4 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k] + k3 * dt, absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i + dt),
-                                                leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
+                    double k1 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k], absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i),
+                                                    leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
 
-                temp_profile[p * num_cohorts_per_patch + k] += dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
+                    double k2 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k] + k1 * dt / 2, absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i + dt / 2),
+                                                    leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
 
+                    double k3 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k] + k2 * dt / 2, absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i + dt / 2),
+                                                    leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
+
+                    double k4 = calc_temp_increment(temp_profile[p * num_cohorts_per_patch + k] + k3 * dt, absorbed_radiance[k], direct_profile_PAR[k + 1] - direct_profile_PAR[k], calc_air_temp(dt * i + dt),
+                                                    leaf_area_profile[p * num_cohorts_per_patch + k], mass_profile[p * num_cohorts_per_patch + k]);
+
+                    temp_profile[p * num_cohorts_per_patch + k] += dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4);
+
+                    if ((p == 0) && print_output)
+                        output << temp_profile[k] << "\t";
+                }
                 if ((p == 0) && print_output)
-                    output << temp_profile[k] << "\t";
+                    output << "\n";
             }
-            if ((p == 0) && print_output)
-                output << "\n";
+            if (print_output)
+                output.close();
         }
-        if (print_output)
-            output.close();
+        // }
     }
+#pragma omp master
+    {
+        auto end_time = std::chrono::steady_clock::now();
 
-    auto end_time = std::chrono::steady_clock::now();
+        std::chrono::duration<double> diff = end_time - start_time;
+        double seconds = diff.count();
 
-    std::chrono::duration<double> diff = end_time - start_time;
-    double seconds = diff.count();
-
-    std::cout << "Simulation Time = " << seconds << " seconds for " << num_patches
+        std::cout << "Simulation Time = " << seconds << " seconds for " << num_patches
                   << " patches with " << num_cohorts_per_patch << " cohorts per patch.\n";
+    }
 
     return 0;
 }

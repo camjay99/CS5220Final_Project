@@ -1,33 +1,33 @@
-cmake_minimum_required(VERSION 3.11)
-project(hw3)
-enable_language(CUDA)
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
-# netID
-set(NET_ID xxx CACHE STRING "Your netID")
+cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+project(Final_Project_GPU LANGUAGES CXX CUDA)
 
-# Packaging system
-if (NOT ${NET_ID} STREQUAL xxx)
-    set(CPACK_GENERATOR TGZ)
-    set(CPACK_PACKAGE_FILE_NAME "CS5220${NET_ID}_hw3")
-    install(FILES gpu.cu DESTINATION .)
-    install(FILES ${CPACK_PACKAGE_FILE_NAME}.pdf DESTINATION .)
-    include(CPack)
-endif ()
+add_library(drivers STATIC
+    canopy_air_space.cu
+    canopy_air_space.h
+    numerics.cu
+    numerics.h
+    photosynthesis.cu
+    photosynthesis.h
+    radiation_solver.cu
+    radiation_solver.h
+    parameters.h
+)
 
-# We require the GNU compiler for this assignment.
-if (NOT "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-    set(Prg-Intel "PrgEnv-intel")
-    set(Prg-Clang "PrgEnv-cray")
-    message(WARNING
-            "Must use GNU Compiler for submission. Make sure you ran:\n"
-            "module swap ${Prg-${CMAKE_C_COMPILER_ID}} PrgEnv-gnu")
-endif ()
+# Request that particles be built with -std=c++11
+# As this is a public compile feature anything that links to particles
+# will also build with -std=c++11
+target_compile_features(drivers PUBLIC cxx_std_11)
+
+# We need to explicitly state that we need all CUDA files in the particle
+# library to be built with -dc as the member functions could be called by
+# other libraries and executables
+set_target_properties( drivers
+                       PROPERTIES CUDA_SEPARABLE_COMPILATION ON
+                     )
 
 add_executable(gpu cohort_serial.cu)
-target_compile_features(gpu PRIVATE cxx_std_11)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_60 --expt-extended-lambda")
+set_target_properties(gpu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+target_link_libraries(gpu PRIVATE drivers)
 
-# Copy the job scripts
-#configure_file(job-gpu job-gpu COPYONLY)
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_60 --expt-extended-lambda")

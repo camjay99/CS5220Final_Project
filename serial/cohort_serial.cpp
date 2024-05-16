@@ -15,7 +15,7 @@
 // Considerations for evapotranspiration, growth, diurnal cycles, etc. will be implemented in the future.
 
 int num_patches = 1;    // Number of patches to include in a grid cell
-int num_cohorts_per_patch = 5;
+int num_cohorts_per_patch = 4;
 int seed = 42;
 double dt = 300;
 bool print_output = true;
@@ -48,30 +48,47 @@ double calc_air_temp(double t) {
 }
 
 double calc_incoming_PAR(double t) {
-    return incoming_direct_PAR / 2 * std::sin(2 * 3.1415 * (t - 7200) / 86400 )  + incoming_direct_PAR / 2;
+    return incoming_direct_PAR / 2 * std::sin(2 * 3.1415 * (t - 18000) / 86400 )  + incoming_direct_PAR / 2;
 }
 
 double calc_incoming_NIR(double t) {
-    return incoming_direct_NIR / 2 * std::sin(2 * 3.1415 * (t - 7200) / 86400)  + incoming_direct_NIR/ 2;
+    return incoming_direct_NIR / 2 * std::sin(2 * 3.1415 * (t - 18000) / 86400)  + incoming_direct_NIR/ 2;
 }
 
-double calc_temp_increment(double temp, double incoming_radiation, double incoming_PAR, double air_temp, double leaf_area, double mass) {
-    double G_Qlambda = calculate_G_Qlambda(air_temp, temp, leaf_size, wind_speed);
-    double G_Wlambda = calculate_G_Wlambda(G_Qlambda, air_density);
-    double Q_cohort_canopy = calculate_Q_cohort_canopy(leaf_area, air_density, G_Qlambda, air_temp, temp, w_c);
-    double G_Clambda = G_Wlambda/f_Glambda;
+// Calculate temperature increments four at a time.
+void calc_temp_increment(double* d_temp, double* temp, double* incoming_radiation, double* incoming_PAR, double air_temp, double* leaf_area, double* mass) {
+    double* G_Qlambda = new double[4];
+    double* G_Wlambda = new double[4];
+    double* Q_cohort_canopy = new double[4];
+    double* G_Clambda = new double[4];
+    for (int i = 0; i < 4; i++) {
+        G_Qlambda[i] = calculate_G_Qlambda(air_temp, temp[i], leaf_size, wind_speed);
+        G_Wlambda[i] = calculate_G_Wlambda(G_Qlambda[i], air_density);
+        Q_cohort_canopy[i] = calculate_Q_cohort_canopy(leaf_area[i], air_density, G_Qlambda[i], air_temp, temp[i], w_c);
+        G_Clambda[i] = G_Wlambda[i]/f_Glambda;
+    }
 
-    double A = co2_mixing_ratio_solver_C4(G_Wl, G_Wlambda, G_Clambda, M, c_c, w_c, dw, temp, Vcmax15, Q10Vcmax,
-                                           f_cold, f_hot, T_cold, T_hot,
-                                           incoming_PAR, f_clump, f_R, quantum_yield, p_c);
+    double* A = new double[4];
+    co2_mixing_ratio_solver_C4(A, G_Wl, 
+                               G_Wlambda, G_Clambda, M, 
+                               c_c, w_c, dw,
+                               temp, Vcmax15, Q10Vcmax,
+                               f_cold, f_hot, T_cold, T_hot,
+                               incoming_PAR, f_clump, f_R, quantum_yield, p_c);
 
-    double water_flux = calculate_water_flux(stomata, leaf_area, G_Wlambda, G_Wl, w_c, temp, p_c);
-    double soil_cohort_enthalpy = calculate_soil_cohort_enthalpy(water_flux, soil_temp);
-    double cohort_CAS_enthalpy = calculate_cohort_CAS_enthalpy(water_flux, temp);
+    double water_flux;
+    double soil_cohort_enthalpy;
+    double cohort_CAS_enthalpy;
+    double total_enthalpy_change;
 
-    double total_enthalpy_change = (incoming_radiation - Q_cohort_canopy) + (soil_cohort_enthalpy - cohort_CAS_enthalpy);
+    for (int i = 0; i < 4; i++) {
+        water_flux = calculate_water_flux(stomata, leaf_area[i], G_Wlambda[i], G_Wl, w_c, temp[i], p_c);
+        soil_cohort_enthalpy = calculate_soil_cohort_enthalpy(water_flux, soil_temp);
+        cohort_CAS_enthalpy = calculate_cohort_CAS_enthalpy(water_flux, temp[i]);
 
-    return ((total_enthalpy_change) / (mass*((0.7*q_l_water + q_leaf)/1.7)));
+        total_enthalpy_change = (incoming_radiation[i] - Q_cohort_canopy[i]) + (soil_cohort_enthalpy - cohort_CAS_enthalpy);
+        d_temp[i] = ((total_enthalpy_change) / (mass[i]*((0.7*q_l_water + q_leaf)/1.7)));
+    } 
 }
 
 int main(int argc, char** argv) {
@@ -88,7 +105,6 @@ int main(int argc, char** argv) {
     for (int k = 0; k < num_patches*num_cohorts_per_patch; k++) {
         leaf_area_profile[k] = la_rd(gen);
         mass_profile[k] = m_rd(gen);
-        printf("%d\t%f\t%f\n", k, leaf_area_profile[k], mass_profile[k]);
     }
 
     // No need to randomize temp_profiles, as the will quickly converge to long-term behavior.
@@ -107,6 +123,7 @@ int main(int argc, char** argv) {
         double* direct_profile_PAR = new double[num_cohorts_per_patch+1];
         double* direct_profile_NIR = new double[num_cohorts_per_patch+1];
         double* absorbed_radiance = new double[num_cohorts_per_patch];
+        double* absorbed_PAR = new double[num_cohorts_per_patch];
         // Order could probably be changed to be more sensical, but this loops over all time steps.
         std::ofstream output;
         if ((p == 0) && print_output)
@@ -118,25 +135,46 @@ int main(int argc, char** argv) {
             calculate_absorbed_radiance(absorbed_radiance, 
                                     direct_profile_PAR, direct_profile_NIR,
                                     num_cohorts_per_patch);
-
-            // For each cohort in this patch
             for (int k = 0; k < num_cohorts_per_patch; k++) {
-                double k1 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k], absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i), 
-                                    leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
+                absorbed_PAR[k] = direct_profile_PAR[k+1] - direct_profile_PAR[k];
+            }
+            // For each cohort in this patch
+            double* k1 = new double[4];
+            double* k2 = new double[4];
+            double* k3 = new double[4];
+            double* k4 = new double[4];
+            double* intermediate_temp = new double[4];
+            for (int k = 0; k < num_cohorts_per_patch; k += 4) {
+                
+                calc_temp_increment(k1, temp_profile + p*num_cohorts_per_patch + k, absorbed_radiance + k, absorbed_PAR + k, calc_air_temp(dt*i), 
+                                    leaf_area_profile + p*num_cohorts_per_patch + k, mass_profile + p*num_cohorts_per_patch + k);
 
-                double k2 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k] + k1*dt/2, absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i + dt/2), 
-                                    leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
+                for (int i = 0; i < 4; i++) {
+                    intermediate_temp[i] = temp_profile[p*num_cohorts_per_patch + k + i] + k1[i]*dt/2;
+                }
+                calc_temp_increment(k2, intermediate_temp, absorbed_radiance + k, absorbed_PAR + k, calc_air_temp(dt*i + dt/2), 
+                                    leaf_area_profile + p*num_cohorts_per_patch + k, mass_profile + p*num_cohorts_per_patch + k);
 
-                double k3 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k] + k2*dt/2, absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i + dt/2), 
-                                    leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
+                for (int i = 0; i < 4; i++) {
+                    intermediate_temp[i] = temp_profile[p*num_cohorts_per_patch + k + i] + k2[i]*dt/2;
+                }
+                calc_temp_increment(k3, intermediate_temp, absorbed_radiance + k, absorbed_PAR + k, calc_air_temp(dt*i + dt/2), 
+                                    leaf_area_profile + p*num_cohorts_per_patch + k, mass_profile + p*num_cohorts_per_patch + k);
 
-                double k4 = calc_temp_increment(temp_profile[p*num_cohorts_per_patch + k] + k3*dt, absorbed_radiance[k], direct_profile_PAR[k+1] - direct_profile_PAR[k], calc_air_temp(dt*i + dt), 
-                                    leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
+                for (int i = 0; i < 4; i++) {
+                    intermediate_temp[i] = temp_profile[p*num_cohorts_per_patch + k + i] + k3[i]*dt;
+                }
+                calc_temp_increment(k4, intermediate_temp, absorbed_radiance + k, absorbed_PAR + k, calc_air_temp(dt*i + dt), 
+                                    leaf_area_profile + p*num_cohorts_per_patch + k, mass_profile + p*num_cohorts_per_patch + k);
 
-                temp_profile[p*num_cohorts_per_patch + k] += dt/6 * (k1 + 2*k2 + 2*k3 + k4);
+                for (int i = 0; i < 4; i++) {
+                    temp_profile[p*num_cohorts_per_patch + k + i] += dt/6 * (k1[i] + 2*k2[i] + 2*k3[i] + k4[i]);
+                }
 
                 if ((p == 0) && print_output)
-                    output << temp_profile[k] << "\t";
+                    for (int i = 0; i < 4; i++) {
+                        output << temp_profile[k + i] << "\t";
+                    }
             }
             if ((p == 0) && print_output)
                     output << "\n";

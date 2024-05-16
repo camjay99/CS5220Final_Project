@@ -6,9 +6,9 @@
 #include <chrono>
 #include <cuda.h>
 #include "parameters.h"
-#include "radiation_solver.cu"
-#include "photosynthesis.cu"
-#include "canopy_air_space.cu"
+#include "radiation_solver.h"
+#include "photosynthesis.h"
+#include "canopy_air_space.h"
 
 #define NUM_THREADS 256
 int blks;
@@ -25,9 +25,9 @@ bool print_output = true;
 
 __device__ double dt = 300;
 
-__device__ double* direct_profile_PAR_dev;
-__device__ double* direct_profile_NIR_dev;
-__device__ double* absorbed_radiance_dev;
+double* direct_profile_PAR_dev;
+double* direct_profile_NIR_dev;
+double* absorbed_radiance_dev;
 
 double* temp_profile_dev;
 double* leaf_area_profile_dev;
@@ -88,11 +88,13 @@ __device__ double calc_temp_increment(double temp, double incoming_radiation, do
 }
 
 
-__global__ void simulate_one_step(int num_patches, int num_cohorts_per_patch, int i, double* temp_profile, double* leaf_area_profile, double* mass_profile) {
+__global__ void simulate_one_step(int num_patches, int num_cohorts_per_patch, int i, double* temp_profile, double* leaf_area_profile, double* mass_profile, double* direct_profile_PAR, double* direct_profile_NIR, double* absorbed_radiance) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     if (tid >= num_patches * num_cohorts_per_patch) {
         return;
     }
+    
+    //
     //printf("%d ", tid);
     int p = tid / num_cohorts_per_patch;
     int k = tid % num_cohorts_per_patch;
@@ -100,15 +102,15 @@ __global__ void simulate_one_step(int num_patches, int num_cohorts_per_patch, in
     //printf("%f ", temp_profile[0]);
         
     //for (int p = 0; p < num_patches; p++) {
-        double* direct_profile_PAR = direct_profile_PAR_dev;
-        double* direct_profile_NIR = direct_profile_NIR_dev;
-        double* absorbed_radiance = absorbed_radiance_dev;
-        // Calculate direct radiation profile 
+        // Calculate direct radiation profile
+        //printf("Hello from thread %d\n", tid);
         calculate_direct_profile(direct_profile_PAR, num_cohorts_per_patch, calc_incoming_PAR(i*dt));
         calculate_direct_profile(direct_profile_NIR, num_cohorts_per_patch, calc_incoming_NIR(i*dt));
         calculate_absorbed_radiance(absorbed_radiance, 
                                 direct_profile_PAR, direct_profile_NIR,
                                 num_cohorts_per_patch);
+
+        
 
         // For each cohort in this patch
         //for (int k = 0; k < num_cohorts_per_patch; k++) {
@@ -125,11 +127,24 @@ __global__ void simulate_one_step(int num_patches, int num_cohorts_per_patch, in
                                 leaf_area_profile[p*num_cohorts_per_patch + k], mass_profile[p*num_cohorts_per_patch + k]);
 
             temp_profile[p*num_cohorts_per_patch + k] += dt/6 * (k1 + 2*k2 + 2*k3 + k4);
+            //if (tid==0) {printf("%f %f %f %f %f\n", absorbed_radiance[0], direct_profile_PAR[0], direct_profile_NIR[0], leaf_area_profile[0], mass_profile[0]);}
 
         //}
 
     //}
+    
+    //temp_profile[0]++;
 
+}
+
+__global__ void cuda_hello(){
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    printf("Hello from thread %d\n", tid);
+}
+
+__global__ void cuda_print_address(double* addr){
+    //int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    printf("%f\n", addr[0]);
 }
 
 
@@ -163,44 +178,46 @@ int main(int argc, char** argv) {
     
     // Set temperature
     for (int k = 0; k < num_patches*num_cohorts_per_patch; k++) {
-        temp_profile[k] = 298.15 + k;
+        temp_profile[k] = 298.15;
     }
-    
-    // Starting simulation algorithm
-    auto start_time = std::chrono::steady_clock::now();
 
 
     // alloc GPU space
     cudaMalloc((void **)&direct_profile_PAR_dev,       (num_cohorts_per_patch + 1) * sizeof(double) );
+    //
     cudaMalloc((void **)&direct_profile_NIR_dev,       (num_cohorts_per_patch + 1) * sizeof(double) );
     cudaMalloc((void **)&absorbed_radiance_dev ,       (num_cohorts_per_patch)     * sizeof(double) );
 
-    cudaMalloc((void **)&temp_profile_dev ,       (num_cohorts_per_patch)     * sizeof(double) );
+    cudaMalloc((void **)&temp_profile_dev ,       (num_patches*num_cohorts_per_patch)     * sizeof(double) );
     cudaMemcpy(temp_profile_dev, temp_profile, num_patches * num_cohorts_per_patch * sizeof(double), cudaMemcpyHostToDevice);
-
-    cudaMalloc((void **)&leaf_area_profile_dev ,       (num_cohorts_per_patch)     * sizeof(double) );
+    
+    cudaMalloc((void **)&leaf_area_profile_dev ,       (num_patches*num_cohorts_per_patch)     * sizeof(double) );
     cudaMemcpy(leaf_area_profile_dev, leaf_area_profile, num_patches * num_cohorts_per_patch * sizeof(double), cudaMemcpyHostToDevice);
 
-    cudaMalloc((void **)&mass_profile_dev ,       (num_cohorts_per_patch)     * sizeof(double) );
+    cudaMalloc((void **)&mass_profile_dev ,       (num_patches*num_cohorts_per_patch)     * sizeof(double) );
     cudaMemcpy(mass_profile_dev, mass_profile, num_patches * num_cohorts_per_patch * sizeof(double), cudaMemcpyHostToDevice);
+	
+    // Starting simulation algorithm
+    auto start_time = std::chrono::steady_clock::now();
 
     // for each time step
     for (int i = 0; i < 2016; i++) {
 
         //printf("%d", i);
-
-        simulate_one_step<<<blks, NUM_THREADS>>>(num_patches, num_cohorts_per_patch, i, temp_profile_dev, leaf_area_profile_dev, mass_profile_dev);
-
+        simulate_one_step<<<blks, NUM_THREADS>>>(num_patches, num_cohorts_per_patch, i, temp_profile_dev, leaf_area_profile_dev, mass_profile_dev, direct_profile_PAR_dev, direct_profile_NIR_dev, absorbed_radiance_dev);
+        cudaDeviceSynchronize();
+        //cuda_hello<<<1,1>>>();
     }
 
     //printf("\n%d\n", blks);
     //printf("%d\n", NUM_THREADS);
+    
+    cudaDeviceSynchronize();
+    auto end_time = std::chrono::steady_clock::now();
 
     cudaMemcpy(temp_profile, temp_profile_dev, num_patches * num_cohorts_per_patch * sizeof(double), cudaMemcpyDeviceToHost); // copy data back from gpu
 
     printf("\n%f %f %f %f\n", temp_profile[0], temp_profile[1], temp_profile[2], temp_profile[3]);
-
-    auto end_time = std::chrono::steady_clock::now();
 
     std::chrono::duration<double> diff = end_time - start_time;
     double seconds = diff.count();
